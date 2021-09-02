@@ -2,6 +2,9 @@
 
 class eshoplogisticShippingApi
 {
+
+    const METHOD_TARGET = 'target';
+    const METHOD_INFO = 'info';
     /**
      * @var string
      */
@@ -48,13 +51,26 @@ class eshoplogisticShippingApi
         $this->api_url = $this->default_api_url . $path;
     }
 
+    public function getByApiMethod($method, $data = '')
+    {
+        if ($method === self::METHOD_TARGET) {
+            $result = $this->setTarget($data);
+        }elseif($method === self::METHOD_INFO){
+            $result = $this->infoAccount();
+        }else {
+            $result = [];
+        }
+
+        return $result;
+    }
+
     public function saveApiKey()
     {
         if(empty($this->api_key)) {
             throw new waException('API ключ пустой');
         }
 
-        $result = $this->infoAccount();
+        $result = $this->getByApiMethod('info');
         if (!$result) {
             throw new waException('API ключ некорректный');
         }
@@ -66,7 +82,7 @@ class eshoplogisticShippingApi
         $this->generateApiUrl('site');
 
         $result = $this->sendRequest($this->data);
-        return $result;
+        return $result['data'];
     }
 
     /**
@@ -91,13 +107,36 @@ class eshoplogisticShippingApi
 
         $errors = $this->setErrors($result);
 
-        // if the error returned, then clear the array
         if (count($result) <= 0 || $errors) {
             $result = [];
         }
 
         return (array)$result;
     }
+
+    public function setTarget($data = '')
+    {
+        if(isset($data['fias']) && !empty($data['fias'])) {
+            $this->data = [
+                'fias' => $data['fias']
+            ];
+        }
+        elseif(isset($data['city']) && !empty($data['city'])) {
+            $this->data = [
+                'city' => $data['city']
+            ];
+        }else {
+            $this->data = [
+                //'ip' => $_SERVER['REMOTE_ADDR']
+                'ip' => '5.143.161.13'
+            ];
+        }
+
+        $this->generateApiUrl('target');
+        $result =  $this->sendRequest($this->data);
+        return $result['data'];
+    }
+
 
     /**
      * @param $result

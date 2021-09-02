@@ -1,49 +1,16 @@
-let onLoad = () => {
-    alert(1);
-    const appRoot = document.getElementById('eShopLogisticStatic')
-    const propsCity = {
-        fias: "c52ea942-555e-45c6-9751-58897717b02f",
-        name: "Тверь",
-        postal_code: "170000",
-        rank: 2,
-        region: "Тверская область",
-        services: {
-            baikal: "c52ea942-555e-45c6-9751-58897717b02f",
-            boxberry: "55",
-            delline: "6900000100000000000000000",
-            dpd: "195730113",
-            gtd: "690000100000",
-            iml: "ТВЕРЬ",
-            pecom: "175508",
-            sdek: "245"
-        }
-    };
-    console.log(appRoot);
-    const offers = '[{"article":"1","name":"Товар 1","count":"2","price":"300.25","weight":"2.4"}]'
-    const payment = {
-        key: 'cashless',
-        name: "Безналичный расчёт",
-        comment: null,
-        active: true
-    }
-    appRoot.dispatchEvent(new CustomEvent('eShopLogistic:load', {
-        detail: {
-            city: propsCity,
-            payment,
-            offers
-        }
-    }))
-}
-//setTimeout(onLoad,4000)
+window.addEventListener('load', function(event) {
+    eslRun()
+});
+
 let esl = {
     items: {
         widget_id: 'eShopLogisticStatic',
-        esldata_field_id: 'wahtmlcontrol_details_custom_widget_city_esl',
-        esldata_to_id: 'js-city-field',
-        esldata_offers_id: 'wahtmlcontrol_details_custom_widget_offers_esl',
-        esldata_deliveries_id: 'wahtmlcontrol_details_custom_esldata_deliveries',
-        no_delivery_id: 'pickup',
-        payments: 'cashless',
+        esldata_field_id: 'esldata',
+        esldata_to_id: 'esldata_to',
+        esldata_offers_id: 'esldata_offers',
+        esldata_deliveries_id: 'esldata_deliveries',
+        no_delivery_id: 'delivery_' + eshoplogistic2Config.no_delivery_id,
+        payments: JSON.parse(eshoplogistic2Config.payments),
         esl_search_block_id: 'esl_search_block'
     },
     current: { payment_id: null, delivery_id: null },
@@ -52,9 +19,17 @@ let esl = {
     widget_payment: { key: '' },
     request: function (action) {
         return new Promise(function (resolve, reject) {
-            console.log('_______INIT______________');
-            let eslShipping = window.waOrder.form;
-            console.log(eslShipping.reload());
+            const request = new XMLHttpRequest()
+            request.open('POST', eshoplogistic2Config.actionUrl, true)
+            request.responseType = 'json'
+            request.setRequestHeader('X-Requested-With', 'XMLHttpRequest')
+            request.setRequestHeader("Content-type", "application/x-www-form-urlencoded")
+            request.send(action)
+            request.addEventListener("readystatechange", () => {
+                if (request.readyState === 4 && request.status === 200) {
+                    resolve(request.response)
+                }
+            })
         })
     },
     check: function () {
@@ -64,22 +39,53 @@ let esl = {
 
         let check = true
 
+        elements.forEach(element => {
+            if(!document.getElementById(this.items[element])) {
+                if(element == 'no_delivery_id') {
+                    console.log('Для работы модуля eShopLogistic включите способ доставки по умолчанию [id="' + this.items.no_delivery_id + '"]')
+                } else {
+                    console.log('Для работы модуля eShopLogistic необходим элемент [id="' + this.items[element] + '"]')
+                }
+                check = false
+            }
+        });
+
+        if(!current_payment) {
+            console.log('Нет ни одного варианта оплаты')
+            check = false
+        } else {
+            this.current.payment_id = current_payment.id
+        }
+
+        if(!current_delivery) {
+            console.log('Нет ни одного варианта доставки')
+            check = false
+        } else {
+            this.current.delivery_id = current_delivery.id
+        }
 
         return check
     },
     prepare: function () {
-        const to = JSON.parse(document.getElementById(this.items.esldata_field_id).value),
+        const to = JSON.parse(document.getElementById(this.items.esldata_to_id).value),
             offers = document.getElementById(this.items.esldata_offers_id).value,
-            services = '1',
+            services = JSON.parse(document.getElementById(this.items.esldata_deliveries_id).value),
             payments = this.items.payments
-
 
         this.widget_offers = offers
         this.widget_city.type = to.type
         this.widget_city.name = to.name
         this.widget_city.fias = to.fias
         this.widget_city.services = to.services
-        this.widget_payment.key = 'card'
+
+        let current_payment = this.current.payment_id.match(/(\d)/)
+        if(current_payment[0]) {
+            for (const [key, value] of Object.entries(this.items.payments)) {
+                if(value.indexOf(current_payment[0]) != -1) {
+                    this.widget_payment.key = key
+                }
+            }
+        }
     },
     run: async function (reload = '') {
 
@@ -119,18 +125,32 @@ let esl = {
             widget.dispatchEvent(new CustomEvent('eShopLogistic:reload', {detail}))
         }
         else {
-            console.log(widget);
             widget.dispatchEvent(new CustomEvent('eShopLogistic:load', {detail}))
         }
     },
     confirm:  async function (response) {
-        console.log(this);
-        const esldata_deliveries = JSON.parse(document.getElementById(this.items.esldata_deliveries_id).value)
-              ms_delivery_item = document.getElementById('delivery_' + esldata_deliveries[response.keyDelivery]),
-              current_delivery = document.querySelector('input[name=delivery]:checked'),
-              delivery_info_elements = ['mode', 'time', 'service', 'address', 'comment', 'payment', 'payment-comment']
+        const esldata_field = document.getElementById(this.items.esloutdata_field_id),
+            esldata_deliveries = JSON.parse(document.getElementById(this.items.esldata_deliveries_id).value)
+        ms_delivery = esldata_deliveries[response.keyDelivery],
+            ms_delivery_item = document.getElementById('delivery_' + esldata_deliveries[response.keyDelivery]),
+            current_delivery = document.querySelector('input[name=delivery]:checked'),
+            delivery_info_elements = ['mode', 'time', 'service', 'address', 'comment', 'payment', 'payment-comment']
 
-        document.getElementById('wahtmlcontrol_details_custom_widget_terminal_esl').value = ''
+        document.getElementById('terminal').value = ''
+
+        if(typeof ms_delivery != 'undefined') {
+            if(!ms_delivery_item) {
+                ms_delivery = false
+            }
+        } else {
+            ms_delivery = false
+        }
+
+        if(!ms_delivery) {
+            console.log('Не найден способ датсавки с id = delivery_' + esldata_deliveries[response.keyDelivery])
+            this.error({})
+            return
+        }
 
         esldata = {
             price: 0,
@@ -230,7 +250,7 @@ let esl = {
 
     },
     setTerminal: function (response) {
-        const terminal = document.getElementById('wahtmlcontrol_details_custom_widget_terminal_esl'),
+        const terminal = document.getElementById('terminal'),
             info = document.getElementById('esl-info-address')
         if(response.keyDelivery == 'terminal') {
             terminal.value = response.deliveryAddress.code + ' ' + response.deliveryAddress.address
@@ -309,11 +329,44 @@ let esl = {
 
 
 function eslRun() {
+
     // скроем все варианты доставки ms2
-    const ms_deliveries = document.getElementById('js-delivery-variants-section')
-        //ms_deliveries.style.display = 'none'
+    const ms_deliveries = document.querySelectorAll('[name="delivery"]')
+    ms_deliveries.forEach.call(ms_deliveries, function(el){
+        el.parentElement.style.display = 'none'
+    })
+
+    // блокируем автозаполнение города
+    document.getElementById('city').setAttribute('autocomplete', 'esl-city')
 
     esl.run()
+
+    miniShop2.Callbacks.add('Order.add.response.success', 'eShopLogisticOrderAdd', function (response) {
+        if(eshoplogistic2Config.payment_on == 1) {
+            if(typeof response.data.payment == 'string') {
+                esl.run('payment')
+            }
+        }
+    })
+    miniShop2.Callbacks.add('Cart.change.response.success', 'eShopLogisticCartChange', function (response) {
+        esl.run('offers')
+    })
+    miniShop2.Callbacks.add('Cart.remove.response.success', 'eShopLogisticCartRemove', function (response) {
+        esl.run('offers')
+    })
+}
+
+document.body.addEventListener("click", function(){
+    const search_block = document.getElementById(esl.items.esl_search_block_id)
+    if(search_block) {
+        search_block.style.display = 'none'
+    }
+})
+
+document.getElementById('city').oninput = function() {
+    if(this.value.length >= 3) {
+        esl.search(this.value)
+    }
 }
 
 document.addEventListener('eShopLogistic:ready', () => {
@@ -330,7 +383,9 @@ document.addEventListener('eShopLogistic:ready', () => {
         esl.confirm(response)
         document.dispatchEvent(new CustomEvent('esl2onSelectedService', {detail: response }))
     }
+    eShopLogistic.onSelectedCity = function (response) {
+        console.log('onSelectedCity', response)
+        document.getElementById('city').value = response.name
+        miniShop2.Order.add('city', response.name)
+    }
 })
-
-setTimeout(eslRun,1000)
-
