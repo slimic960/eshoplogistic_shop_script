@@ -127,8 +127,7 @@ class eshoplogisticShippingApi
             ];
         }else {
             $this->data = [
-                //'ip' => $_SERVER['REMOTE_ADDR']
-                'ip' => '5.143.161.13'
+                'ip' => $_SERVER['REMOTE_ADDR']
             ];
         }
 

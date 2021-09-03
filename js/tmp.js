@@ -1,7 +1,43 @@
 window.addEventListener('load', function(event) {
     eslRun()
 });
-
+let onLoad = () => {
+    alert(1);
+    const appRoot = document.getElementById('eShopLogisticStatic')
+    const propsCity = {
+        fias: "c52ea942-555e-45c6-9751-58897717b02f",
+        name: "Тверь",
+        postal_code: "170000",
+        rank: 2,
+        region: "Тверская область",
+        services: {
+            baikal: "c52ea942-555e-45c6-9751-58897717b02f",
+            boxberry: "55",
+            delline: "6900000100000000000000000",
+            dpd: "195730113",
+            gtd: "690000100000",
+            iml: "ТВЕРЬ",
+            pecom: "175508",
+            sdek: "245"
+        }
+    };
+    console.log(appRoot);
+    const offers = '[{"article":"1","name":"Товар 1","count":"2","price":"300.25","weight":"2.4"}]'
+    const payment = {
+        key: 'cashless',
+        name: "Безналичный расчёт",
+        comment: null,
+        active: true
+    }
+    appRoot.dispatchEvent(new CustomEvent('eShopLogistic:load', {
+        detail: {
+            city: propsCity,
+            payment,
+            offers
+        }
+    }))
+}
+//setTimeout(onLoad,4000)
 let esl = {
     items: {
         widget_id: 'eShopLogisticStatic',

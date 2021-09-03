@@ -71,26 +71,50 @@ class eshoplogisticShipping extends waShipping
         return 'kg';
     }
 
+
     protected function calculate($params = array())
     {
+
+        $price = 0;
+        $name = '';
+        $time = '';
+        if (isset($_POST['esljson']) && $_POST['esljson'] == '1') {
+            $data = json_decode($_POST['esldata']);
+            if(isset($data->price)){
+                $price = $data->price;
+                $name = $data->name;
+                $time = $data->time;
+            }
+
+
+        }
         $services = array(
             'pickup' => array(
                 'name' => 'Выбрать ПВЗ',
-                'est_delivery' => '8 сентября 2021',
+                'est_delivery' => $time,
                 'description' => 'ПВЗ',
                 'currency'     => 'RUB',
-                'rate'         => 500.0,
+                'rate'         => $price,
                 'type'         =>  self::TYPE_PICKUP,
-                'service' => 'СДЭК',
+                'service' => $name,
             ),
             'delivery' => array(
                 'name' => 'Курьер',
-                'est_delivery' => '8 сентября 2021',
+                'est_delivery' => $time,
                 'description' => 'Курьер',
                 'currency'     =>  'RUB',
-                'rate'         => 500.0,
+                'rate'         => $price,
                 'type'         =>  self::TYPE_TODOOR,
-                'service' => 'СДЭК',
+                'service' => $name,
+            ),
+            'post' => array(
+                'name' => 'Почта',
+                'est_delivery' => $time,
+                'description' => 'Курьер',
+                'currency'     =>  'RUB',
+                'rate'         => $price,
+                'type'         =>  self::TYPE_POST,
+                'service' => $name,
             )
 
         );
@@ -104,20 +128,26 @@ class eshoplogisticShipping extends waShipping
      */
     public function customFields(waOrder $order)
     {
-        $api = new eshoplogisticShippingApi($this->getSettings());
-        $city = $api->getByApiMethod('target');
-        $info = $api->getByApiMethod('info');
-
         $shipping_params = $order->shipping_params;
         $shipping_address = $order->shipping_address;
-        $fields = parent::customFields($order);
+        $api = new eshoplogisticShippingApi($this->getSettings());
+        $city = $api->getByApiMethod('target', $shipping_address);
+        $info = $api->getByApiMethod('info');
 
+
+        $fields = parent::customFields($order);
+        self::calculate();
+
+        $services = array();
+        foreach ($info['services'] as $key=>$item){
+            $services[$key] = $item['city_code'];
+        }
 
         $this->dataTmp['city'] = array(
             'fias' => $city['fias'],
             'name' => $city['target'],
             'type' => $city['type'],
-            'services' => $info['services']
+            'services' => $services
         );
 
         foreach ($order->items as $key=>$item){
@@ -129,7 +159,7 @@ class eshoplogisticShipping extends waShipping
                 'name' => $item['name'],
                 'count' => $item['quantity'],
                 'price' => $item['price'],
-                'weight' => isset($features['weight']->value)?$features['weight']->value:0,
+                'weight' => isset($features['weight']->value)?$features['weight']->value:1,
             );
         }
 
